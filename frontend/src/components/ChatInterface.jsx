@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Stage0 from './Stage0';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
@@ -11,6 +12,7 @@ export default function ChatInterface({
   isLoading,
 }) {
   const [input, setInput] = useState('');
+  const [enableResearch, setEnableResearch] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -24,7 +26,7 @@ export default function ChatInterface({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
-      onSendMessage(input);
+      onSendMessage(input, enableResearch);
       setInput('');
     }
   };
@@ -55,6 +57,9 @@ export default function ChatInterface({
           <div className="empty-state">
             <h2>Start a conversation</h2>
             <p>Ask a question to consult the LLM Council</p>
+            <p className="research-hint">
+              Enable research preprocessing for culturally complex topics
+            </p>
           </div>
         ) : (
           conversation.messages.map((msg, index) => (
@@ -66,11 +71,23 @@ export default function ChatInterface({
                     <div className="markdown-content">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
+                    {msg.research_enabled && (
+                      <div className="research-badge">Research Mode Enabled</div>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="assistant-message">
                   <div className="message-label">LLM Council</div>
+
+                  {/* Stage 0 - Research Preprocessing */}
+                  {msg.loading?.stage0 && (
+                    <div className="stage-loading">
+                      <div className="spinner"></div>
+                      <span>Running Stage 0: Gathering specialized research...</span>
+                    </div>
+                  )}
+                  {msg.stage0 && <Stage0 researchFindings={msg.stage0} />}
 
                   {/* Stage 1 */}
                   {msg.loading?.stage1 && (
@@ -122,6 +139,24 @@ export default function ChatInterface({
 
       {conversation.messages.length === 0 && (
         <form className="input-form" onSubmit={handleSubmit}>
+          <div className="input-controls">
+            <div className="research-toggle">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={enableResearch}
+                  onChange={(e) => setEnableResearch(e.target.checked)}
+                  disabled={isLoading}
+                />
+                <span className="toggle-label">
+                  Enable Research Layer
+                  <span className="toggle-hint">
+                    (Stage 0: Cultural, narrative & philosophical preprocessing)
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
           <textarea
             className="message-input"
             placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"

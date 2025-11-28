@@ -1,0 +1,41 @@
+.stage0 {
+  background-color: #f0f8ff; /* Light blue tint to distinguish from other stages */
+  border-left: 4px solid #4a90e2;
+}
+
+.stage0 .stage-description {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 0.25em;
+  margin-bottom: 1em;
+  font-style: italic;
+}
+
+.stage0 .research-category {
+  font-weight: 600;
+  color: #2c5282;
+  margin-bottom: 0.75em;
+  font-size: 0.95em;
+}
+
+.stage0 .research-findings {
+  line-height: 1.6;
+}
+
+/* Tab styling specific to Stage 0 */
+.stage0 .tabs {
+  border-bottom: 2px solid #4a90e2;
+}
+
+.stage0 .tab {
+  color: #2c5282;
+}
+
+.stage0 .tab.active {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.stage0 .tab:hover:not(.active) {
+  background-color: #e6f2ff;
+}

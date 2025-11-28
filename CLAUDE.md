@@ -71,13 +71,26 @@ The system has been extended with an optional Stage 0 research layer for film an
 
 **`App.jsx`**
 - Main orchestration: manages conversations list and current conversation
-- Handles message sending and metadata storage
+- Handles message sending with optional `enableResearch` parameter
+- Processes streaming events including stage0_start and stage0_complete
 - Important: metadata is stored in the UI state for display but not persisted to backend JSON
+- Assistant messages now include: `{role, stage0, stage1, stage2, stage3, metadata, loading}`
 
 **`components/ChatInterface.jsx`**
+- Research toggle checkbox: enables/disables Stage 0 preprocessing
+- Toggle hint explains: "Stage 0: Cultural, narrative & philosophical preprocessing"
+- Research badge displayed on user messages when research enabled
 - Multiline textarea (3 rows, resizable)
 - Enter to send, Shift+Enter for new line
 - User messages wrapped in markdown-content class for padding
+- Passes `enableResearch` state to `onSendMessage` handler
+
+**`components/Stage0.jsx`** (NEW)
+- Tab view of research findings (cultural, narrative, philosophical)
+- Light blue background (#f0f8ff) to distinguish from other stages
+- Displays research category name and findings
+- ReactMarkdown rendering with markdown-content wrapper
+- Only shown when Stage 0 research was enabled for the query
 
 **`components/Stage1.jsx`**
 - Tab view of individual model responses
