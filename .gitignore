@@ -15,6 +15,13 @@ wheels/
 # Data files
 data/
 
+# Test outputs (generated files, can be regenerated)
+baahubali_*.json
+baahubali_*.md
+*_without_research.json
+*_with_research.json
+*_comparison.md
+
 # Frontend
 frontend/node_modules/
 frontend/dist/
