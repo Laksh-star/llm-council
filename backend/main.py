@@ -32,6 +32,7 @@ class CreateConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     """Request to send a message in a conversation."""
     content: str
+    enable_research: bool = False  # Optional: enable Stage 0 research preprocessing
 
 
 class ConversationMetadata(BaseModel):
@@ -101,9 +102,10 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         title = await generate_conversation_title(request.content)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process
-    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+    # Run the council process (with optional Stage 0 research)
+    stage0_results, stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
+        request.content,
+        enable_research=request.enable_research
     )
 
     # Add assistant message with all stages
@@ -115,12 +117,18 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     )
 
     # Return the complete response with metadata
-    return {
+    response_data = {
         "stage1": stage1_results,
         "stage2": stage2_results,
         "stage3": stage3_result,
         "metadata": metadata
     }
+
+    # Include stage0 if research was enabled
+    if stage0_results is not None:
+        response_data["stage0"] = stage0_results
+
+    return response_data
 
 
 @app.post("/api/conversations/{conversation_id}/message/stream")
@@ -147,20 +155,31 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content))
 
+            stage0_results = None
+            query_for_council = request.content
+
+            # Stage 0 (Optional): Research preprocessing
+            if request.enable_research:
+                from .research_layer import stage0_research_gather, enrich_query_with_research
+                yield f"data: {json.dumps({'type': 'stage0_start'})}\n\n"
+                stage0_results = await stage0_research_gather(request.content)
+                query_for_council = enrich_query_with_research(request.content, stage0_results)
+                yield f"data: {json.dumps({'type': 'stage0_complete', 'data': stage0_results})}\n\n"
+
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            stage1_results = await stage1_collect_responses(query_for_council)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(query_for_council, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(query_for_council, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started

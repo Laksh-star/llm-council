@@ -19,6 +19,10 @@ COUNCIL_MODELS = [
 # Chairman model - synthesizes final response
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 
+# Research model - gathers specialized research in Stage 0 (film analysis)
+# Using Claude for deep analysis and cultural understanding
+RESEARCH_MODEL = "anthropic/claude-sonnet-4.5"
+
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 

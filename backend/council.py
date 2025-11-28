@@ -1,8 +1,9 @@
-"""3-stage LLM Council orchestration."""
+"""3-stage LLM Council orchestration (with optional Stage 0 research layer)."""
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from .openrouter import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .research_layer import stage0_research_gather, enrich_query_with_research
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
@@ -293,35 +294,51 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(
+    user_query: str,
+    enable_research: bool = False,
+    research_categories: Optional[List[str]] = None
+) -> Tuple[Optional[List], List, List, Dict, Dict]:
     """
-    Run the complete 3-stage council process.
+    Run the complete council process (with optional Stage 0 research layer).
 
     Args:
         user_query: The user's question
+        enable_research: Whether to run Stage 0 research preprocessing
+        research_categories: Optional list of research categories (defaults to all)
 
     Returns:
-        Tuple of (stage1_results, stage2_results, stage3_result, metadata)
+        Tuple of (stage0_results, stage1_results, stage2_results, stage3_result, metadata)
+        stage0_results will be None if enable_research is False
     """
-    # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query)
+    stage0_results = None
+    query_for_council = user_query
+
+    # Stage 0 (Optional): Research preprocessing
+    if enable_research:
+        stage0_results = await stage0_research_gather(user_query, research_categories)
+        # Enrich the query with research findings
+        query_for_council = enrich_query_with_research(user_query, stage0_results)
+
+    # Stage 1: Collect individual responses (using enriched query if research was enabled)
+    stage1_results = await stage1_collect_responses(query_for_council)
 
     # If no models responded successfully, return error
     if not stage1_results:
-        return [], [], {
+        return stage0_results, [], [], {
             "model": "error",
             "response": "All models failed to respond. Please try again."
         }, {}
 
     # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
+    stage2_results, label_to_model = await stage2_collect_rankings(query_for_council, stage1_results)
 
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
     # Stage 3: Synthesize final answer
     stage3_result = await stage3_synthesize_final(
-        user_query,
+        query_for_council,
         stage1_results,
         stage2_results
     )
@@ -329,7 +346,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     # Prepare metadata
     metadata = {
         "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings
+        "aggregate_rankings": aggregate_rankings,
+        "research_enabled": enable_research
     }
 
-    return stage1_results, stage2_results, stage3_result, metadata
+    return stage0_results, stage1_results, stage2_results, stage3_result, metadata
